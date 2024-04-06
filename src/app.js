@@ -1,3 +1,4 @@
+const compression = require('compression')
 const express = require('express')
 const { default: helmet } = require('helmet')
 const morgan = require('morgan')
@@ -5,14 +6,11 @@ const app = express()
 
 // init middlewares
 app.use(morgan("dev"))
-// app.use(morgan("combined"))
-// app.use(morgan("common"))
-// app.use(morgan("short"))
-// app.use(morgan("tiny"))
 app.use(helmet())
 app.use(compression())
 
 // init database
+require('./dbs/init.mongodb')
 
 // init routes
 app.get('/', (req, res, next) => {
