@@ -11,6 +11,8 @@ app.use(compression())
 
 // init database
 require('./dbs/init.mongodb')
+const { checkOverloadConnect } = require('./helpers/check.connect')
+checkOverloadConnect()
 
 // init routes
 app.get('/', (req, res, next) => {
