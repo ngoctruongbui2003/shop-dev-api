@@ -9,6 +9,11 @@ const app = express()
 app.use(morgan("dev"))	
 app.use(helmet())
 app.use(compression())
+app.use(express.json())
+app.use(express.urlencoded({
+    extends: true
+}))
+
 
 // init database
 require('./dbs/init.mongodb')
@@ -16,14 +21,7 @@ const { checkOverloadConnect } = require('./helpers/check.connect')
 // checkOverloadConnect()
 
 // init routes
-app.get('/', (req, res, next) => {
-	const strCompression = "Hello Ngoc Truong Bui"
-
-	return res.status(200).json({
-		message: 'Welcome Truong Bui',
-		metadata: strCompression.repeat(10000)
-	})
-})
+app.use('', require('./routers'))
 
 // handle error
 
