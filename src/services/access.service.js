@@ -2,11 +2,12 @@
 
 const shopModel = require('../models/shop.model')
 const bcrypt = require('bcrypt')
-const crypto = require('node:crypto')
+const crypto = require('crypto')
 const KeyTokenService = require('./keyToken.service')
 const { createTokenPair } = require('../auth/authUtils')
 const { getInfoData } = require('../utils/index')
-const { BadRequestError } = require('../core/error.response')
+const { BadRequestError, AuthFailureError } = require('../core/error.response')
+const { findByEmail } = require('./shop.service')
 
 const RoleShop = {
 	SHOP: 'SHOP',
@@ -16,6 +17,55 @@ const RoleShop = {
 }
 
 class AccessService {
+
+	static logout = async (keyStore) => {
+		console.log(keyStore._id);
+		const delKey = await KeyTokenService.removeKeyById(keyStore._id)
+		console.log({ delKey });
+
+		return delKey
+	}
+
+	static login = async ({ email, password, refreshToken = null }) => {
+		// 1. Check email in dbs
+		const foundShop = await findByEmail({ email })
+		if (!foundShop) throw new BadRequestError('Shop not registered')
+
+		// 2. Match password
+		const match = bcrypt.compare(password, foundShop.password)
+		if (!match) throw new AuthFailureError('Authentication error')
+		
+		// 3. Create AT (Access token) and RT (Refresh Token) and save
+		// Create publicKey and privateKey
+		const publicKey = crypto.randomBytes(64).toString('hex')
+		const privateKey = crypto.randomBytes(64).toString('hex')
+
+		// 4. Generate tokens
+		const userId = foundShop._id
+
+		const tokens = await createTokenPair(
+			{ userId, email },
+			publicKey,
+			privateKey
+		)
+
+		await KeyTokenService.createKeyToken({
+			userId,
+			refreshToken: tokens.refreshToken,
+			privateKey,
+			publicKey,
+		})
+
+		// 5. Get data return login
+		return {
+			shop: getInfoData({
+				fields: ['_id', 'name', 'email'],
+				object: foundShop
+			}),
+			tokens
+		} 
+	}
+
 	static signUp = async ({ name, email, password }) => {
 		// Step 1: Check email exists?
 		const holderShop = await shopModel.findOne({ email }).lean()
@@ -28,8 +78,7 @@ class AccessService {
 		// --- Email not exists ---
 
 		// Step 2: Hash password
-		const saltRounds = 10
-		const passwordHash = await bcrypt.hash(password, saltRounds)
+		const passwordHash = await bcrypt.hash(password, 10)
 		
 		// Create a new shop
 		const newShop = await shopModel.create({
@@ -81,17 +130,6 @@ class AccessService {
 		)
 		console.log(`Created Token Success::`, tokens);
 		
-		// throw new CREATED({
-		// 	message: 'Create a new shop successfully!',
-		// 	metadata: {
-		// 		shop: getInfoData({
-		// 			fields: ['_id', 'name', 'email'],
-		// 			object: newShop
-		// 		}),
-		// 		tokens
-		// 	}
-		// }).send(res)
-
 		return {
 			shop: getInfoData({
 				fields: ['_id', 'name', 'email'],
@@ -100,6 +138,7 @@ class AccessService {
 			tokens
 		}
 	}
+
 }
 
 module.exports = AccessService
