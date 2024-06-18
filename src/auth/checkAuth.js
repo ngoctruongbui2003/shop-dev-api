@@ -20,6 +20,7 @@ const apiKey = async (req, res, next) => {
 
         // Check object key
         const objKey = await findById(key)
+        
 
         if (!objKey) {
             return res.status(403).json({

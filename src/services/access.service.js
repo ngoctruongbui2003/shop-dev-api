@@ -4,10 +4,11 @@ const shopModel = require('../models/shop.model')
 const bcrypt = require('bcrypt')
 const crypto = require('crypto')
 const KeyTokenService = require('./keyToken.service')
-const { createTokenPair } = require('../auth/authUtils')
+const { createTokenPair, verifyJWT } = require('../auth/authUtils')
 const { getInfoData } = require('../utils/index')
-const { BadRequestError, AuthFailureError } = require('../core/error.response')
+const { BadRequestError, AuthFailureError, ForbiddenError } = require('../core/error.response')
 const { findByEmail } = require('./shop.service')
+const apikeyModel = require('../models/apikey.model')
 
 const RoleShop = {
 	SHOP: 'SHOP',
@@ -17,6 +18,46 @@ const RoleShop = {
 }
 
 class AccessService {
+	static handleRefreshToken = async ({ refreshToken, user, keyStore }) => {
+		const { userId, email } = user
+
+		if (keyStore.refreshTokensUsed.includes(refreshToken)) {
+			await KeyTokenService.deleteKeyByUserId(userId)
+			throw new ForbiddenError('Something wrong happend!! Please relogin!')
+		}
+
+		if (keyStore.refreshToken !== refreshToken) throw new AuthFailureError('Shop not registeted 1')
+
+		// Check userId
+		const foundShop = await findByEmail({ email })
+		if (!foundShop) throw new AuthFailureError('Shop not registered 2')
+
+		// create new token pair
+		const tokens = await createTokenPair(
+			{ userId, email },
+			keyStore.publicKey,
+			keyStore.privateKey
+		)
+
+		console.log(`keyStore::`, keyStore);
+
+		await apikeyModel.updateOne(
+			{ _id: keyStore._id }, 
+			{
+				$set: {
+					refreshToken: tokens.refreshToken
+				},
+				$addToSet: {
+					refreshTokensUsed: refreshToken
+				}
+			},
+			{ upsert: true })
+
+		return {
+			user,
+			tokens
+		}
+	}
 
 	static logout = async (keyStore) => {
 		console.log(keyStore._id);
