@@ -25,7 +25,7 @@ const findAllProducts = async({ limit, sort, page, filter, select }) => {
     return products
 }
 
-const findProduct = async({ product_id, unSelect }) => {
+const findProduct = async({ product_id, unSelect = {} }) => {
     return await product.findById(product_id)
     .select(unGetSelectData(unSelect))
     .lean()
