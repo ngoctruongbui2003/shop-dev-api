@@ -1,6 +1,12 @@
 'use strict'
 
-const { cloudinary } = require("../config/cloundinary.config")
+import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
+// const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { cloudinary, image } = require("../config/cloundinary.config")
+const { s3, PutObjectCommand } = require("../config/s3.config")
+const crypto = require('crypto')
+
+const { GetObjectCommand } = require("@aws-sdk/client-s3");
 
 // 1. upload from url image
 const uploadImageFromUrl = async () => {
@@ -85,8 +91,58 @@ const uploadImageFromLocalFiles = async ({
     }
 }
 
+// ------- Amazon Web Service S3 -------
+// 4. Upload from image local
+const uploadImageFromLocalS3 = async ({
+    file
+}) => {
+    try {
+        const randomImageName = () => crypto.randomBytes(16).toString('hex');
+        const imageName = randomImageName(); 
+
+        const command = new PutObjectCommand({
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: imageName, // name of image
+            Body: file.buffer, // Buffer of file
+            ContentType: 'image/jpeg', // that is what you need!
+        });
+        const result = await s3.send(command);
+
+        console.log(result);
+        
+
+        // const singledUrl = new GetObjectCommand({
+        //     Bucket: process.env.AWS_BUCKET_NAME,
+        //     Key: imageName, // name of image
+        // })
+        // export url by s3-request-presigner
+        // const url = await getSignedUrl(s3, singledUrl, { expiresIn: 3600 });
+
+        const url = `${process.env.AWS_DISTRIBUTE_DOMAIN_NAME}/${imageName}`
+        // export url by cloudfront-signer
+        const signedUrl  = await getSignedUrl({
+            url,
+            keyPairId: process.env.AWS_CLOUDFRONT_PUBLIC_KEY_ID,
+            dateLessThan: new Date(Date.now() + 3 * 60 * 60 * 60 * 1000), // 3 days
+            privateKey: process.env.AWS_CLOUDFRONT_PRIVATE_KEY_ID,
+        });
+
+        console.log(signedUrl);
+        return {
+            url,
+            result: result,
+        }
+
+    } catch (error) {
+        console.error(`Error uploading image use S3Client: ${error}`);
+        
+    }
+}
+
+
 module.exports = {
     uploadImageFromUrl,
     uploadImageFromLocal,
-    uploadImageFromLocalFiles
+    uploadImageFromLocalFiles,
+    uploadImageFromLocalS3
 }
