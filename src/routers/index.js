@@ -4,6 +4,14 @@ const express = require('express')
 const { apiKey, permission } = require('../auth/checkAuth')
 const router = express.Router()
 
+router.get('/checkstatus', (req, res) => {
+    return res.status(200).json({
+        status: 'check status done',
+        code: 200,
+        message: 'WSV eCommerce is running'
+    })
+})
+
 // check apiKey
 router.use(apiKey)
 
