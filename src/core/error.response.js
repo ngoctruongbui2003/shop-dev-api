@@ -10,6 +10,9 @@ const ReasonStatusCode = {
     CONFLICT: 'Conflict error'
 }
 
+// const logger = require('../loggers/winston')
+const myLogger = require('../loggers/mylogger.log')
+
 const {
     StatusCodes,
     ReasonPhrases
@@ -19,6 +22,16 @@ class ErrorResponse extends Error {
     constructor(message, status) {
         super(message)
         this.status = status
+
+        // Log the error use winston
+        // logger.error(`${this.status} - ${message}`)
+
+        // Log the error use myLogger
+        myLogger.error({
+            context: '/path',
+            requestId: 'UUUAAA',
+            message,
+        })
     }
 }
 
